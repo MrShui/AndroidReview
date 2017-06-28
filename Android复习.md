@@ -1,7 +1,5 @@
-####为什么在Service中创建子线程而不是Activity中
-这是因为Activity很难对Thread进行控制，当Activity被销毁之后，就没有任何其它的办法可以再重新获取到之前创建的子线程的实例。而且在一个Activity中创建的子线程，另一个Activity无法对其进行操作。但是Service就不同了，所有的Activity都可以与Service进行关联，然后可以很方便地操作其中的方法，即使Activity被销毁了，之后只要重新与Service建立关联，就又能够获取到原有的Service中Binder的实例。因此，使用Service来处理后台任务，Activity就可以放心地finish，完全不需要担心无法对后台任务进行控制的情况。
-
 ####数据库相关操作
+
 SQLiteOpenHelper类，onCreate，onUpgrade，getReadableDatabase()，getWritableDatabase()内存不足时会报错。
 
 #### Android的数据存储形式
@@ -107,6 +105,28 @@ System.exit(1);
 
      动态代理模式（InvocationHandler）
 
+     ***代理模式***
+
+     kotlin by关键字
+
+     ```java
+     interface Base {
+         fun print()
+     }
+
+     class BaseImpl(val x: Int) : Base {
+         override fun print() {
+             System.out.println(x)
+         }
+     }
+
+     class Derive(base: Base) : Base by base
+
+     fun main(args: Array<String>) {
+         Derive(BaseImpl(5)).print()
+     }
+     ```
+
      #### Get和Post区别
 
      1. get从不对服务器上资源做修改，一般用查询，post一般伴随着对服务器端资源的修改，一般修改和删除
@@ -128,6 +148,111 @@ System.exit(1);
      * <u>fragment重叠：</u>***fragment被加载多次，判断saveInstanceState是否为空，来决定是否需要调用fragment add()方法***
      * <u>一些建议：</u>***1、fragment传递数据，使用setArguments()，然后在onCreate()中使用getArguments()，防止内存重启之后数据丢失；2、使用newInstance(参数)创建fragment，优点是调用者只需关心传递的参数，无需关心key(AndroidStudio自带模板方法)；3、BaseFragment中自己记录fragment的activity，防止getActivity()空指针***
      * <u>懒加载：</u>***onHindChanged()不会回调，需要使用setUserVisibleHint(boolean isVisibleToUser)方法***
+
+     #### RxJava
+
+     * 优点：能把复杂的逻辑串成一条线
+     * 实现异步操作的库
+     * ***map***返回一个新的数据源；***from（2.0方法为：fromArray）***返回接受集合返回一个可观测的数据源；***flatMap***把一个可观测的数据源转换成另一个可观测的数据源；***filter***过滤操作符，true表示留下，false过滤掉
+
+     #### 内存泄漏和内存溢出
+
+     * ***静态存储区：***存储静态数据，包括static数据和常量，程序运行之后一直存在；***栈区：***方法执行时，局部变量，和对象的引用；***堆区：***new的对象存放在堆区
+     * 内存泄漏的原因：***长生命周期的对象引用短生命周期的对象，短生命周期的对象已经不再需要，但是因为长生命周期的对象持有它的引用，导致它无法被回收***
+     * 内存泄漏场景：
+       1. 监听没有remove
+       2. io、以及数据库操作完没有close
+       3. 集合类没有删除元素，只增不减
+       4. 单例中持有activity context，导致activity context无法被gc回收
+       5. 匿名内部类，这个引用传给异步线程持，而异步线程和Activity或是fragment生命周期不同步的时候，会造成内存泄漏，handler（非静态内部类会持有外部类的引用）
+       6. handler内存泄漏修复，将内部类改为静态内部类，对外部类的引用改为弱引用；cursor、io等及时关闭；不用的对象即使置空释放内存；监听生命周期结束或用完之后要remove掉。
+       7. 可以使用LeakCanary检测内存泄漏
+
+     #### MPAndroidChart
+
+     #### Kotlin
+
+     #### Android6.0权限系统
+
+     #### Android性能优化
+
+     #### 进程和线程
+
+     进程是程序的一次执行，线程是进程中执行的一段代码片段
+
+     #### Socket通讯
+
+     #### RecycleView相关知识
+
+     * onCreateViewHolder(),onBindViewHolder(),集成ViewHolder
+     * 添加头、尾布局：维护一个mData，复写getItemType()和getItemCount()
+     * 添加分割线：使用ItemDecoration
+     * 上拉加载更多
+
+     ```java
+     public abstract class EndLessOnScrollListener extends RecyclerView.OnScrollListener{
+
+         //声明一个LinearLayoutManager
+         private LinearLayoutManager mLinearLayoutManager;
+
+         //当前页，从0开始    private int currentPage = 0;
+         //已经加载出来的Item的数量
+         private int totalItemCount;
+
+         //主要用来存储上一个totalItemCount
+         private int previousTotal = 0;
+
+         //在屏幕上可见的item数量
+         private int visibleItemCount;
+
+         //在屏幕可见的Item中的第一个
+         private int firstVisibleItem;
+
+         //是否正在上拉数据
+         private boolean loading = true;
+
+         public EndLessOnScrollListener(LinearLayoutManager linearLayoutManager) {
+             this.mLinearLayoutManager = linearLayoutManager;
+         }
+
+         @Override
+         public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+             super.onScrolled(recyclerView, dx, dy); 
+
+             visibleItemCount = recyclerView.getChildCount();
+             totalItemCount = mLinearLayoutManager.getItemCount();
+             firstVisibleItem = mLinearLayoutManager.findFirstVisibleItemPosition();
+             if(loading){
+                 if(totalItemCount > previousTotal){
+                     //说明数据已经加载结束
+                     loading = false;
+                     previousTotal = totalItemCount;
+                 } 
+            }
+             //这里需要好好理解
+             if (!loading && totalItemCount-visibleItemCount <= firstVisibleItem){
+                 currentPage ++;
+                 onLoadMore(currentPage);
+                 loading = true;
+             }
+         }
+
+         /**
+          * 提供一个抽闲方法，在Activity中监听到这个			     EndLessOnScrollListener
+          * 并且实现这个方法
+          * */
+         public abstract void onLoadMore(int currentPage);}
+     ```
+
+     * BaseViewAdapter
+
+     ​
+
+     ​
+
+     ​
+
+     ​
 
      ​
 
